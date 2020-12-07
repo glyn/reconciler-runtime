@@ -7,6 +7,7 @@ package reconcilers
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -26,6 +27,24 @@ func EnqueueTracked(by runtime.Object, t tracker.Tracker, s *runtime.Scheme) *ha
 
 			key := tracker.NewKey(
 				gvks[0],
+				types.NamespacedName{Namespace: a.Meta.GetNamespace(), Name: a.Meta.GetName()},
+			)
+			for _, item := range t.Lookup(key) {
+				requests = append(requests, reconcile.Request{NamespacedName: item})
+			}
+
+			return requests
+		}),
+	}
+}
+
+func EnqueueTrackedByGVK(by schema.GroupVersionKind, t tracker.Tracker) *handler.EnqueueRequestsFromMapFunc {
+	return &handler.EnqueueRequestsFromMapFunc{
+		ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
+			var requests []reconcile.Request
+
+			key := tracker.NewKey(
+				by,
 				types.NamespacedName{Namespace: a.Meta.GetNamespace(), Name: a.Meta.GetName()},
 			)
 			for _, item := range t.Lookup(key) {
